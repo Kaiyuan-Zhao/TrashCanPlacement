@@ -25,7 +25,7 @@ def translate(imPath, color_mapping, output_file):
             f.write(" ".join(row) + "\n")
 
 
-def main():
+def runConv():
     imPath = "C:\\Users\\kihoi\\Desktop\\smap_1.png"  # Change this to the path of your image
     output = "C:\\Users\\kihoi\\Desktop\\output.txt"  # Output text file
 
@@ -41,5 +41,4 @@ def main():
     print(f"Output saved to {output}")
 
 
-if __name__ == "__main__":
-    main()
+runConv()
