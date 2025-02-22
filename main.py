@@ -9,7 +9,7 @@ import numpy as np
 import os
 
 # Constants
-NUM_AGENTS = 100
+NUM_AGENTS = 50
 NUM_GARBAGE_CANS = 10
 
 # Color constants
@@ -92,12 +92,12 @@ class Agent:
                 path.reverse()
                 return path
 
-            for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+            for dx, dy, cost in [(-1, 0, 1), (1, 0, 1), (0, -1, 1), (0, 1, 1), (-1, -1, np.sqrt(2)), (-1, 1, np.sqrt(2)), (1, -1, np.sqrt(2)), (1, 1, np.sqrt(2))]:
                 neighbor = (current[0] + dx, current[1] + dy)
                 if 0 <= neighbor[0] < self.map_data.shape[0] and 0 <= neighbor[1] < self.map_data.shape[1]:
                     if self.map_data[neighbor[0], neighbor[1]] == WALL:
                         continue
-                    tentative_g_score = g_score[current] + 1
+                    tentative_g_score = g_score[current] + cost
                     if neighbor not in g_score or tentative_g_score < g_score[neighbor]:
                         came_from[neighbor] = current
                         g_score[neighbor] = tentative_g_score
@@ -105,6 +105,31 @@ class Agent:
                         heapq.heappush(open_list, (f_score[neighbor], neighbor))
 
         return []
+
+    def is_visible(self, target):
+        x0, y0 = self.x, self.y
+        x1, y1 = target
+        dx = abs(x1 - x0)
+        dy = abs(y1 - y0)
+        sx = 1 if x0 < x1 else -1
+        sy = 1 if y0 < y1 else -1
+        err = dx - dy
+
+        if dx > self.sight or dy > self.sight:
+            return False
+
+        while (x0, y0) != (x1, y1):
+            if self.map_data[x0, y0] == WALL:
+                return False
+            e2 = err * 2
+            if e2 > -dy:
+                err -= dy
+                x0 += sx
+            if e2 < dx:
+                err += dx
+                y0 += sy
+
+        return True
 
     def update(self, garbage_cans):
         if (self.x, self.y) == self.end:
@@ -115,12 +140,20 @@ class Agent:
             self.active = False
             return
         if not self.path:
+            self.active = False
             return
-        # Check for garbage cans within sight
+
+        closest_can = None
+        closest_distance = float('inf')
         for can in garbage_cans:
-            if abs(self.x - can[0]) <= self.sight and abs(self.y - can[1]) <= self.sight:
-                self.path = self.a_star_pathfind((self.x, self.y), can)
-                break  # Only update path to the first garbage can within sight
+            if self.is_visible(can):
+                distance = abs(self.x - can[0]) + abs(self.y - can[1])
+                if distance < closest_distance:
+                    closest_distance = distance
+                    closest_can = can
+
+        if closest_can:
+            self.path = self.a_star_pathfind((self.x, self.y), closest_can)
 
         try:
             self.x, self.y = self.path.pop(0)
@@ -128,7 +161,7 @@ class Agent:
             return True
         self.patience -= 1
 
-def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=60):
+def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=600000):
     rows, cols = map_data.shape
     SCREEN_WIDTH = 1024  # Desired window width
     SCREEN_HEIGHT = 1024  # Desired window height
@@ -185,7 +218,6 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
 
             # Draw agents and their sight
             for agent in agents:
-                # Sight circle
                 pygame.draw.circle(
                     screen,
                     CAN_COLOR,
@@ -193,83 +225,97 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
                     agent.sight * TILE_SIZE,
                     1
                 )
-                # Agent as a TILE_SIZE x TILE_SIZE block
                 pygame.draw.rect(
                     screen,
                     SPAWN_COLOR,
                     (agent.y * TILE_SIZE, agent.x * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 )
-                # Draw path
                 if agent.path:
                     path_points = [(p[1] * TILE_SIZE + TILE_SIZE // 2, p[0] * TILE_SIZE + TILE_SIZE // 2) for p in agent.path]
                     try:
                         pygame.draw.lines(screen, (0, 255, 255), False, path_points, 2)
                     except:
                         pass
-
+            if all(not agent.active for agent in agents):
+                running = False
+                break
             pygame.display.flip()
             clock.tick(tick_speed)
 
     for agent in agents:
         if agent.has_littered:
-            garbage_dropped +=1
-    print("Simulation ended. Press 'c' to close the window.")
+            garbage_dropped += 1
     if visualize:
-        pygame.quit()
-
+        print("Simulation ended. Press 'c' to close the window.")
+        running = False
+    
     print("Garbage dropped:", garbage_dropped)
+    return garbage_dropped
 
-# Convert map image to array
-imPath = "smap_1.png"  # Change this to the path of your image
-output = "output.txt"  # Output text file
+if __name__ == '__main__':
+    # Convert map image to array
+    imPath = "map2.jpg"  # Change this to the path of your image
+    output = "output.txt"  # Output teçxt file
 
-# Colours
-colours = {
-    EMPTY_COLOR: EMPTY,
-    WALL_COLOR: WALL,  
-    SPAWN_COLOR: SPAWN,
-    END_COLOR: END  
-}
+    # Colours
+    colours = {
+        EMPTY_COLOR: EMPTY,
+        WALL_COLOR: WALL,  
+        SPAWN_COLOR: SPAWN,
+        END_COLOR: END  
+    }
 
-translate(imPath, colours, output)
+    translate(imPath, colours, output)
 
-# Load map data from output file
-map_data = load_map(output)
-print("Map data shape:", map_data.shape)
-print(map_data)
-# Get map dimensions
-MAP_SIZE = map_data.shape
+    # Load map data from output file
+    map_data = load_map(output)
+    print("Map data shape:", map_data.shape)
+    print(map_data)
+    MAP_SIZE = map_data.shape
 
-# Find all destination points (marked with 4)
-destination_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END]
+    # Prepare heatmap array
+    heatmap = np.zeros(MAP_SIZE, dtype=int)
 
-# Ensure there are destination points
-if not destination_points:
-    raise ValueError("No destination points found in the map data.")
+    NUM_RUNS = 10
+    for run in range(NUM_RUNS):
+        # Reset seed for identical simulation runs
+        garbage_cans = []
+        while len(garbage_cans) < NUM_GARBAGE_CANS:
+            can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
+            if map_data[can[0], can[1]] != WALL:
+                adjacent_to_wall = False
+                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    neighbor = (can[0] + dx, can[1] + dy)
+                    if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
+                        if map_data[neighbor[0], neighbor[1]] == WALL:
+                            adjacent_to_wall = True
+                            break
+                if adjacent_to_wall and map_data[can[0], can[1]] == EMPTY:
+                    garbage_cans.append(can)
+        
+        # Find all destination points (marked with END value)
+        destination_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END]
+        if not destination_points:
+            raise ValueError("No destination points found in the map data.")
 
-# Create agents
-agents = []
-while len(agents) < NUM_AGENTS:
-    start = random.choice([(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == SPAWN])
-    end = random.choice([(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END])
-    agents.append(Agent(start=start, end=end, patience=random.randint(100, 300), sight=random.randint(5, 15), map_data=map_data))
+        # Create agents
+        agents = []
+        spawn_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == SPAWN]
+        for _ in range(NUM_AGENTS):
+            start = random.choice(spawn_points)
+            end = random.choice(destination_points)
+            agents.append(Agent(start=start, end=end, patience=random.randint(100, 300), sight=random.randint(5, 15), map_data=map_data))
 
-# Create garbage cans
-garbage_cans = []
-while len(garbage_cans) < NUM_GARBAGE_CANS:
-    can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
-    if map_data[can[0], can[1]] != 1:  # Ensure can is not placed on a wall
-        # Check if the can is adjacent to a wall
-        adjacent_to_wall = False
-        for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
-            neighbor = (can[0] + dx, can[1] + dy)
-            if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
-                if map_data[neighbor[0], neighbor[1]] == WALL:
-                    adjacent_to_wall = True
-                    break
-        # and is on white space
-        if adjacent_to_wall and map_data[can[0], can[1]] == EMPTY:
-            garbage_cans.append(can)
+        # Run simulation without visualization
+        gd = run_simulation(map_data, agents, garbage_cans, visualize=True)
 
-# Run simulation
-run_simulation(map_data, agents, garbage_cans, visualize=True, tick_speed=30)
+        # Update heatmap for each trashcan location with (NUM_AGENTS - garbage dropped)
+        for can in garbage_cans:
+            heatmap[can[0], can[1]] += (NUM_AGENTS - gd)
+
+    # Display heatmap using matplotlib with intensity based on final value at each cell
+    plt.figure(figsize=(8, 8))
+    plt.imshow(heatmap, cmap='hot', interpolation='nearest')
+    plt.title("Trashcan Heatmap Over {} Runs".format(NUM_RUNS))
+    plt.colorbar(label="Accumulated Score")
+    plt.show()
