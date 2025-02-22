@@ -161,7 +161,7 @@ class Agent:
             return True
         self.patience -= 1
 
-def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=600000):
+def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=60):
     rows, cols = map_data.shape
     SCREEN_WIDTH = 1024  # Desired window width
     SCREEN_HEIGHT = 1024  # Desired window height
@@ -186,8 +186,9 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
             if agent.active:
                 agent.update(garbage_cans)
 
-        if not agents:
-            break  # Terminate the simulation if all agents are immobilized or removed
+        # Check if all agents are inactive
+        if all(not agent.active for agent in agents):
+            break
 
         if visualize:
             screen.fill(EMPTY_COLOR)
@@ -236,9 +237,7 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
                         pygame.draw.lines(screen, (0, 255, 255), False, path_points, 2)
                     except:
                         pass
-            if all(not agent.active for agent in agents):
-                running = False
-                break
+
             pygame.display.flip()
             clock.tick(tick_speed)
 
@@ -247,15 +246,15 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
             garbage_dropped += 1
     if visualize:
         print("Simulation ended. Press 'c' to close the window.")
-        running = False
-    
+        pygame.quit()
+
     print("Garbage dropped:", garbage_dropped)
     return garbage_dropped
 
 if __name__ == '__main__':
     # Convert map image to array
-    imPath = "map2.jpg"  # Change this to the path of your image
-    output = "output.txt"  # Output teçxt file
+    imPath = "smap_1.png"  # Change this to the path of your image
+    output = "output.txt"  # Output text file
 
     # Colours
     colours = {
@@ -273,10 +272,18 @@ if __name__ == '__main__':
     print(map_data)
     MAP_SIZE = map_data.shape
 
+    # Define scaling factor based on map size
+    SCALE_FACTOR = (MAP_SIZE[0] / 100 + MAP_SIZE[1] / 100) / 2
+    NUM_GARBAGE_CANS = int(NUM_GARBAGE_CANS * SCALE_FACTOR)
+    NUM_AGENTS = int(NUM_AGENTS * SCALE_FACTOR)
+    print("Scale factor:", SCALE_FACTOR)
+    print("Number of garbage cans:", NUM_GARBAGE_CANS)
+    print("Number of agents:", NUM_AGENTS)
     # Prepare heatmap array
     heatmap = np.zeros(MAP_SIZE, dtype=int)
+    count_map = np.zeros(MAP_SIZE, dtype=int)
 
-    NUM_RUNS = 10
+    NUM_RUNS = 1000
     for run in range(NUM_RUNS):
         # Reset seed for identical simulation runs
         garbage_cans = []
@@ -284,13 +291,13 @@ if __name__ == '__main__':
             can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
             if map_data[can[0], can[1]] != WALL:
                 adjacent_to_wall = False
-                for dx, dy in [(-1, 0), (1, 0), (0, -1), (0, 1)]:
+                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
                     neighbor = (can[0] + dx, can[1] + dy)
                     if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
                         if map_data[neighbor[0], neighbor[1]] == WALL:
                             adjacent_to_wall = True
                             break
-                if adjacent_to_wall and map_data[can[0], can[1]] == EMPTY:
+                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END or map_data[can[0], can[1]] == SPAWN):
                     garbage_cans.append(can)
         
         # Find all destination points (marked with END value)
@@ -304,18 +311,24 @@ if __name__ == '__main__':
         for _ in range(NUM_AGENTS):
             start = random.choice(spawn_points)
             end = random.choice(destination_points)
-            agents.append(Agent(start=start, end=end, patience=random.randint(100, 300), sight=random.randint(5, 15), map_data=map_data))
+            patience = int(random.randint(50, 150) * SCALE_FACTOR)
+            sight = int(random.randint(4, 8) * SCALE_FACTOR)
+            agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
 
         # Run simulation without visualization
-        gd = run_simulation(map_data, agents, garbage_cans, visualize=True)
+        gd = run_simulation(map_data, agents, garbage_cans, visualize=False)
 
-        # Update heatmap for each trashcan location with (NUM_AGENTS - garbage dropped)
+        # Update heatmap and count_map for each trashcan location
         for can in garbage_cans:
             heatmap[can[0], can[1]] += (NUM_AGENTS - gd)
+            count_map[can[0], can[1]] += 1
+        print("Run", run + 1, "completed.")
+    # Calculate average percentage of trash not dropped
+    average_heatmap = np.divide(heatmap, count_map, out=np.zeros_like(heatmap, dtype=float), where=count_map != 0)
 
     # Display heatmap using matplotlib with intensity based on final value at each cell
     plt.figure(figsize=(8, 8))
-    plt.imshow(heatmap, cmap='hot', interpolation='nearest')
-    plt.title("Trashcan Heatmap Over {} Runs".format(NUM_RUNS))
-    plt.colorbar(label="Accumulated Score")
+    plt.imshow(average_heatmap, cmap='hot', interpolation='nearest', norm=plt.Normalize(vmin=0, vmax=np.max(average_heatmap) * 1.2))
+    plt.title("Average Percentage of Trash Not Dropped Over {} Runs".format(NUM_RUNS))
+    plt.colorbar(label="Average Percentage")
     plt.show()
