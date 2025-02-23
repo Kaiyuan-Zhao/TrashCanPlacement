@@ -174,6 +174,8 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
 
     garbage_dropped = 0
     running = True
+    end_simulation = False  # Flag to end simulation
+
     while agents and running:
         if visualize:
             for event in pygame.event.get():
@@ -181,6 +183,19 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
                     running = False
                 elif event.type == pygame.KEYDOWN and event.key == pygame.K_c:
                     running = False
+                    end_simulation = True  # Set flag to end simulation
+
+        if not visualize:
+            import sys
+            import select
+            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                line = sys.stdin.read(1)
+                if line == 'c':
+                    running = False
+                    end_simulation = True  # Set flag to end simulation
+
+        if end_simulation:
+            break  # Break out of the loop if 'c' is pressed
 
         for agent in agents:
             if agent.active:
@@ -253,7 +268,7 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
 
 if __name__ == '__main__':
     # Convert map image to array
-    imPath = "smap_1.png"  # Change this to the path of your image
+    imPath = "smap2.jpg"  # Change this to the path of your image
     output = "output.txt"  # Output text file
 
     # Colours
@@ -283,7 +298,7 @@ if __name__ == '__main__':
     heatmap = np.zeros(MAP_SIZE, dtype=int)
     count_map = np.zeros(MAP_SIZE, dtype=int)
 
-    NUM_RUNS = 1000
+    NUM_RUNS = 100
     for run in range(NUM_RUNS):
         # Reset seed for identical simulation runs
         garbage_cans = []
@@ -311,7 +326,7 @@ if __name__ == '__main__':
         for _ in range(NUM_AGENTS):
             start = random.choice(spawn_points)
             end = random.choice(destination_points)
-            patience = int(random.randint(50, 150) * SCALE_FACTOR)
+            patience = int(random.randint(25, 75) * SCALE_FACTOR)
             sight = int(random.randint(4, 8) * SCALE_FACTOR)
             agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
 
