@@ -1,5 +1,5 @@
 import numpy
-import pandas
+#import pandas
 import matplotlib.pyplot as plt
 import heapq
 import random
@@ -161,6 +161,7 @@ class Agent:
             return True
         self.patience -= 1
 
+#visualize=False for parameter doesn't work when calling func
 def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=60):
     rows, cols = map_data.shape
     SCREEN_WIDTH = 1024  # Desired window width
@@ -186,13 +187,21 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
                     end_simulation = True  # Set flag to end simulation
 
         if not visualize:
-            import sys
-            import select
-            if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-                line = sys.stdin.read(1)
-                if line == 'c':
-                    running = False
-                    end_simulation = True  # Set flag to end simulation
+            try:
+                import msvcrt  # Windows-specific module
+                if msvcrt.kbhit():  # Check if key pressed
+                    if msvcrt.getch() == b'c':  # Check if 'c' was pressed
+                        running = False
+                        end_simulation = True
+            except ImportError:
+                # Fallback for non-Windows systems
+                import sys
+                import select
+                if sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
+                    line = sys.stdin.read(1)
+                    if line == 'c':
+                        running = False
+                        end_simulation = True
 
         if end_simulation:
             break  # Break out of the loop if 'c' is pressed
