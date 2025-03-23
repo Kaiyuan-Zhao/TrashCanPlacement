@@ -277,7 +277,7 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
 
 if __name__ == '__main__':
     # Convert map image to array
-    imPath = "smap2.jpg"  # Change this to the path of your image
+    imPath = "map2.jpg"  # Change this to the path of your image
     output = "output.txt"  # Output text file
 
     # Colours
@@ -321,7 +321,7 @@ if __name__ == '__main__':
                         if map_data[neighbor[0], neighbor[1]] == WALL:
                             adjacent_to_wall = True
                             break
-                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END or map_data[can[0], can[1]] == SPAWN):
+                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END):
                     garbage_cans.append(can)
         
         # Find all destination points (marked with END value)
@@ -340,7 +340,7 @@ if __name__ == '__main__':
             agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
 
         # Run simulation without visualization
-        gd = run_simulation(map_data, agents, garbage_cans, visualize=False)
+        gd = run_simulation(map_data, agents, garbage_cans, visualize=True)
 
         # Update heatmap and count_map for each trashcan location
         for can in garbage_cans:
