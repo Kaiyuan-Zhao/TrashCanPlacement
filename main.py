@@ -307,6 +307,8 @@ if __name__ == '__main__':
     heatmap = np.zeros(MAP_SIZE, dtype=int)
     count_map = np.zeros(MAP_SIZE, dtype=int)
 
+    '''
+    # Original trash simulation code (commented out)
     NUM_RUNS = 500
     for run in range(NUM_RUNS):
         # Reset seed for identical simulation runs
@@ -355,4 +357,52 @@ if __name__ == '__main__':
     plt.imshow(average_heatmap, cmap='hot', interpolation='nearest', norm=plt.Normalize(vmin=0, vmax=np.max(average_heatmap) * 1.2))
     plt.title("Average Percentage of Trash Not Dropped Over {} Runs".format(NUM_RUNS))
     plt.colorbar(label="Average Percentage")
+    plt.show()
+    '''
+
+    # New path coverage simulation
+    NUM_RUNS = 50  # Reduced number of runs since we're tracking path coverage
+    heatmap = np.zeros(MAP_SIZE, dtype=int)
+    
+    for run in range(NUM_RUNS):
+        # Reset seed for identical simulation runs
+        garbage_cans = []
+        while len(garbage_cans) < NUM_GARBAGE_CANS:
+            can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
+            if map_data[can[0], can[1]] != WALL:
+                adjacent_to_wall = False
+                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
+                    neighbor = (can[0] + dx, can[1] + dy)
+                    if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
+                        if map_data[neighbor[0], neighbor[1]] == WALL:
+                            adjacent_to_wall = True
+                            break
+                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END):
+                    garbage_cans.append(can)
+        
+        # Find all destination points (marked with END value)
+        destination_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END]
+        if not destination_points:
+            raise ValueError("No destination points found in the map data.")
+
+        # Create agents
+        agents = []
+        spawn_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == SPAWN]
+        for _ in range(NUM_AGENTS):
+            start = random.choice(spawn_points)
+            end = random.choice(destination_points)
+            patience = int(random.randint(25, 75) * SCALE_FACTOR)
+            sight = int(random.randint(4, 8) * SCALE_FACTOR)
+            agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
+
+        # Run path coverage simulation
+        run_heatmap = run_simulation2(map_data, agents, garbage_cans, visualize=False)
+        heatmap += run_heatmap
+        print("Run", run + 1, "completed.")
+
+    # Display heatmap using matplotlib
+    plt.figure(figsize=(8, 8))
+    plt.imshow(heatmap, cmap='hot', interpolation='nearest')
+    plt.title("Agent Path Coverage Heatmap Over {} Runs".format(NUM_RUNS))
+    plt.colorbar(label="Coverage Count")
     plt.show()
