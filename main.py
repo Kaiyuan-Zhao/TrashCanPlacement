@@ -277,7 +277,7 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
 
 if __name__ == '__main__':
     # Convert map image to array
-    imPath = "map2.jpg"  # Change this to the path of your image
+    imPath = "map3b.png"  # Change this to the path of your image
     output = "output.txt"  # Output text file
 
     # Colours
@@ -307,7 +307,7 @@ if __name__ == '__main__':
     heatmap = np.zeros(MAP_SIZE, dtype=int)
     count_map = np.zeros(MAP_SIZE, dtype=int)
 
-    NUM_RUNS = 100
+    NUM_RUNS = 500
     for run in range(NUM_RUNS):
         # Reset seed for identical simulation runs
         garbage_cans = []
@@ -340,7 +340,7 @@ if __name__ == '__main__':
             agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
 
         # Run simulation without visualization
-        gd = run_simulation(map_data, agents, garbage_cans, visualize=True)
+        gd = run_simulation(map_data, agents, garbage_cans, visualize=False)
 
         # Update heatmap and count_map for each trashcan location
         for can in garbage_cans:
