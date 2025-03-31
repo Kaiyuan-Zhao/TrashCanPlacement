@@ -11,9 +11,6 @@ import os
 # Constants
 NUM_AGENTS = 50
 NUM_GARBAGE_CANS = 10
-NUM_RUNS = 100
-random_spawn_dest = False  # Set to True to enable random spawn/destination
-visualize = False
 
 # Color constants
 EMPTY = 0
@@ -149,44 +146,20 @@ class Agent:
         closest_can = None
         closest_distance = float('inf')
         for can in garbage_cans:
-            can_pos = can.get_position()
-            if self.is_visible(can_pos):
-                distance = abs(self.x - can_pos[0]) + abs(self.y - can_pos[1])
+            if self.is_visible(can):
+                distance = abs(self.x - can[0]) + abs(self.y - can[1])
                 if distance < closest_distance:
                     closest_distance = distance
                     closest_can = can
 
         if closest_can:
-            self.path = self.a_star_pathfind((self.x, self.y), closest_can.get_position())
-            # Record visit when agent reaches the can
-            if len(self.path) == 0:  # Agent reached the can
-                closest_can.record_visit(not self.has_littered)
+            self.path = self.a_star_pathfind((self.x, self.y), closest_can)
 
         try:
             self.x, self.y = self.path.pop(0)
         except IndexError:
             return True
         self.patience -= 1
-
-class GarbageCan:
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.successful_visits = 0
-        self.total_visits = 0
-    
-    def get_position(self):
-        return (self.x, self.y)
-    
-    def record_visit(self, success):
-        self.total_visits += 1
-        if success:
-            self.successful_visits += 1
-    
-    def get_success_rate(self):
-        if self.total_visits == 0:
-            return 0
-        return (self.successful_visits / self.total_visits) * 100
 
 def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=60):
     rows, cols = map_data.shape
@@ -264,7 +237,7 @@ def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=6
                 pygame.draw.rect(
                     screen,
                     CAN_COLOR,
-                    (can.y * TILE_SIZE, can.x * TILE_SIZE, TILE_SIZE, TILE_SIZE)
+                    (can[1] * TILE_SIZE, can[0] * TILE_SIZE, TILE_SIZE, TILE_SIZE)
                 )
 
             # Draw agents and their sight
@@ -323,10 +296,10 @@ def run_combined_simulation(map_data, agents, garbage_cans, visualize=False, tic
     # Second pass: Run garbage collection simulation
     garbage_dropped = run_simulation(map_data, agents, garbage_cans, visualize=visualize, tick_speed=tick_speed)
     
-    # Update trash heatmap using averaged success rates across runs
+    # Update trash heatmap for all cans
     for can in garbage_cans:
-        trash_heatmap[can.x, can.y] += (NUM_AGENTS - garbage_dropped)
-        count_map[can.x, can.y] += 1
+        trash_heatmap[can[0], can[1]] += (NUM_AGENTS - garbage_dropped)
+        count_map[can[0], can[1]] += 1
     
     if visualize:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
@@ -387,18 +360,17 @@ if __name__ == '__main__':
         # Reset seed for identical simulation runs
         garbage_cans = []
         while len(garbage_cans) < NUM_GARBAGE_CANS:
-            x = random.randint(0, MAP_SIZE[0] - 1)
-            y = random.randint(0, MAP_SIZE[1] - 1)
-            if map_data[x, y] != WALL:
+            can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
+            if map_data[can[0], can[1]] != WALL:
                 adjacent_to_wall = False
                 for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    neighbor = (x + dx, y + dy)
+                    neighbor = (can[0] + dx, can[1] + dy)
                     if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
                         if map_data[neighbor[0], neighbor[1]] == WALL:
                             adjacent_to_wall = True
                             break
-                if adjacent_to_wall and (map_data[x, y] == EMPTY or map_data[x, y] == END):
-                    garbage_cans.append(GarbageCan(x, y))
+                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END):
+                    garbage_cans.append(can)
         
         # Find all destination points (marked with END value)
         destination_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END]
@@ -421,7 +393,7 @@ if __name__ == '__main__':
         # Update heatmap and count_map for each trashcan location
         for can in garbage_cans:
             heatmap[can[0], can[1]] += (NUM_AGENTS - gd)
-            count_map[can.x, can.y] += 1
+            count_map[can[0], can[1]] += 1
         print("Run", run + 1, "completed.")
     # Calculate average percentage of trash not dropped
     average_heatmap = np.divide(heatmap, count_map, out=np.zeros_like(heatmap, dtype=float), where=count_map != 0)
@@ -437,7 +409,8 @@ if __name__ == '__main__':
 
     # Combined simulation showing both path coverage and trash collection
     # Set random_spawn_dest=True to allow agents to spawn and go to any non-wall tile
-
+    NUM_RUNS = 50
+    random_spawn_dest = False  # Set to True to enable random spawn/destination
     path_heatmap = np.zeros(MAP_SIZE, dtype=int)
     trash_heatmap = np.zeros(MAP_SIZE, dtype=int)
     count_map = np.zeros(MAP_SIZE, dtype=int)
@@ -446,26 +419,24 @@ if __name__ == '__main__':
         # Reset seed for identical simulation runs
         garbage_cans = []
         while len(garbage_cans) < NUM_GARBAGE_CANS:
-            x = random.randint(0, MAP_SIZE[0] - 1)
-            y = random.randint(0, MAP_SIZE[1] - 1)
-            if map_data[x, y] != WALL:
+            can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
+            if map_data[can[0], can[1]] != WALL:
                 adjacent_to_wall = False
                 for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    neighbor = (x + dx, y + dy)
+                    neighbor = (can[0] + dx, can[1] + dy)
                     if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
                         if map_data[neighbor[0], neighbor[1]] == WALL:
                             adjacent_to_wall = True
                             break
-                if adjacent_to_wall and (map_data[x, y] == EMPTY or map_data[x, y] == END):
-                    garbage_cans.append(GarbageCan(x, y))
+                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END):
+                    garbage_cans.append(can)
         
         # Find all possible spawn and destination points
         if random_spawn_dest:
-            # Only END (red) and SPAWN (blue) squares can be spawn/destination
-            valid_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) 
-                          if map_data[i, j] in (END, SPAWN)]
-            spawn_points = valid_points.copy()
-            destination_points = valid_points.copy()
+            # Any non-wall tile can be spawn or destination
+            spawn_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) 
+                          if map_data[i, j] != WALL]
+            destination_points = spawn_points.copy()
         else:
             # Use original SPAWN and END points
             spawn_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) 
@@ -490,13 +461,13 @@ if __name__ == '__main__':
         # Run combined simulation with random spawn/dest toggle
         run_path_heatmap, run_trash_heatmap = run_combined_simulation(
             map_data, agents, garbage_cans, 
-            visualize=visualize,)
+            visualize=False,)
         path_heatmap += run_path_heatmap
         trash_heatmap += run_trash_heatmap
         
         # Update count map for trash cans
         for can in garbage_cans:
-            count_map[can.x, can.y] += 1
+            count_map[can[0], can[1]] += 1
         
         print("Run", run + 1, "completed.")
 
