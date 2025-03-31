@@ -353,58 +353,7 @@ if __name__ == '__main__':
     print("Number of garbage cans:", NUM_GARBAGE_CANS)
     print("Number of agents:", NUM_AGENTS)
 
-    '''
-    # Original trash simulation code (commented out)
-    NUM_RUNS = 500
-    for run in range(NUM_RUNS):
-        # Reset seed for identical simulation runs
-        garbage_cans = []
-        while len(garbage_cans) < NUM_GARBAGE_CANS:
-            can = (random.randint(0, MAP_SIZE[0] - 1), random.randint(0, MAP_SIZE[1] - 1))
-            if map_data[can[0], can[1]] != WALL:
-                adjacent_to_wall = False
-                for dx, dy in [(-2, 0), (2, 0), (0, -2), (0, 2), (-1, 0), (1, 0), (0, -1), (0, 1)]:
-                    neighbor = (can[0] + dx, can[1] + dy)
-                    if 0 <= neighbor[0] < MAP_SIZE[0] and 0 <= neighbor[1] < MAP_SIZE[1]:
-                        if map_data[neighbor[0], neighbor[1]] == WALL:
-                            adjacent_to_wall = True
-                            break
-                if adjacent_to_wall and (map_data[can[0], can[1]] == EMPTY or map_data[can[0], can[1]] == END):
-                    garbage_cans.append(can)
-        
-        # Find all destination points (marked with END value)
-        destination_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == END]
-        if not destination_points:
-            raise ValueError("No destination points found in the map data.")
-
-        # Create agents
-        agents = []
-        spawn_points = [(i, j) for i in range(MAP_SIZE[0]) for j in range(MAP_SIZE[1]) if map_data[i, j] == SPAWN]
-        for _ in range(NUM_AGENTS):
-            start = random.choice(spawn_points)
-            end = random.choice(destination_points)
-            patience = int(random.randint(25, 75) * SCALE_FACTOR)
-            sight = int(random.randint(4, 8) * SCALE_FACTOR)
-            agents.append(Agent(start=start, end=end, patience=patience, sight=sight, map_data=map_data))
-
-        # Run simulation without visualization
-        gd = run_simulation(map_data, agents, garbage_cans, visualize=False)
-
-        # Update heatmap and count_map for each trashcan location
-        for can in garbage_cans:
-            heatmap[can[0], can[1]] += (NUM_AGENTS - gd)
-            count_map[can[0], can[1]] += 1
-        print("Run", run + 1, "completed.")
-    # Calculate average percentage of trash not dropped
-    average_heatmap = np.divide(heatmap, count_map, out=np.zeros_like(heatmap, dtype=float), where=count_map != 0)
-
-    # Display heatmap using matplotlib with intensity based on final value at each cell
-    plt.figure(figsize=(8, 8))
-    plt.imshow(average_heatmap, cmap='hot', interpolation='nearest', norm=plt.Normalize(vmin=0, vmax=np.max(average_heatmap) * 1.2))
-    plt.title("Average Percentage of Trash Not Dropped Over {} Runs".format(NUM_RUNS))
-    plt.colorbar(label="Average Percentage")
-    plt.show()
-    '''
+  
 
 
     # Combined simulation showing both path coverage and trash collection
