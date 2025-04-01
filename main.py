@@ -11,9 +11,13 @@ import os
 # Constants
 NUM_AGENTS = 50
 NUM_GARBAGE_CANS = 10
-NUM_RUNS = 100
-random_spawn_dest = False  # Set to True to enable random spawn/destination
+NUM_RUNS = 500
+maxPercentage = 60  # Maximum percentage scale for heatmap visualization
+random_spawn_dest = False # Set to True to enable random spawn/destination
 visualize = False
+imPath = "map2.jpg"  # Change this to the path of your image
+
+paddingMultiplyer = 1
 
 # Color constants
 EMPTY = 0
@@ -156,37 +160,34 @@ class Agent:
                     closest_distance = distance
                     closest_can = can
 
-        if closest_can:
-            self.path = self.a_star_pathfind((self.x, self.y), closest_can.get_position())
-            # Record visit when agent reaches the can
-            if len(self.path) == 0:  # Agent reached the can
-                closest_can.record_visit(not self.has_littered)
-
         try:
             self.x, self.y = self.path.pop(0)
         except IndexError:
             return True
+
+        if closest_can:
+            self.path = self.a_star_pathfind((self.x, self.y), closest_can.get_position())
+            # Record visit when agent reaches the can (position matches can position)
+            if (self.x, self.y) == closest_can.get_position():
+                closest_can.record_visit(not self.has_littered)
+                #print(f"Agent visited can at ({self.x},{self.y}) - success: {not self.has_littered}")
         self.patience -= 1
 
 class GarbageCan:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-        self.successful_visits = 0
-        self.total_visits = 0
+        self.successful_visits = 0  # Counts only successful disposals
     
     def get_position(self):
         return (self.x, self.y)
     
     def record_visit(self, success):
-        self.total_visits += 1
         if success:
             self.successful_visits += 1
     
-    def get_success_rate(self):
-        if self.total_visits == 0:
-            return 0
-        return (self.successful_visits / self.total_visits) * 100
+    def get_success_count(self):
+        return self.successful_visits
 
 def run_simulation(map_data, agents, garbage_cans, visualize=False, tick_speed=60):
     rows, cols = map_data.shape
@@ -322,11 +323,15 @@ def run_combined_simulation(map_data, agents, garbage_cans, visualize=False, tic
     
     # Second pass: Run garbage collection simulation
     garbage_dropped = run_simulation(map_data, agents, garbage_cans, visualize=visualize, tick_speed=tick_speed)
-    
-    # Update trash heatmap using averaged success rates across runs
+    #!garbage dropped should not be used now
+
+    #print("------------------")
+    # Calculate percentage of successful disposals per agent for this run
     for can in garbage_cans:
-        trash_heatmap[can.x, can.y] += (NUM_AGENTS - garbage_dropped)
-        count_map[can.x, can.y] += 1
+        #print(can.successful_visits)
+        percentage = (can.successful_visits / NUM_AGENTS) * 100
+        trash_heatmap[can.x, can.y] += percentage
+    #print("------------------")
     
     if visualize:
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 8))
@@ -336,13 +341,12 @@ def run_combined_simulation(map_data, agents, garbage_cans, visualize=False, tic
         ax1.set_title("Agent Path Coverage (Radius = Sight)")
         fig.colorbar(im1, ax=ax1, label="Coverage Count")
         
-        # Trash collection heatmap
-        avg_trash = np.divide(trash_heatmap, count_map * NUM_AGENTS,
-                            out=np.zeros_like(trash_heatmap, dtype=float),
-                            where=count_map != 0) * 100
-        masked_avg = np.ma.masked_where(count_map == 0, avg_trash)
+        # Average the percentages across runs
+        avg_trash = np.divide(trash_heatmap, NUM_RUNS,
+                            out=np.zeros_like(trash_heatmap, dtype=float))
+        masked_avg = np.ma.masked_where(trash_heatmap == 0, avg_trash)
         im2 = ax2.imshow(masked_avg, cmap='hot', interpolation='nearest',
-                        norm=plt.Normalize(vmin=0, vmax=100))
+                        norm=plt.Normalize(vmin=0, vmax=maxPercentage))
         ax2.set_title("Trash Collection Rate (%)")
         fig.colorbar(im2, ax=ax2, label="Percentage")
         
@@ -353,7 +357,7 @@ def run_combined_simulation(map_data, agents, garbage_cans, visualize=False, tic
 
 if __name__ == '__main__':
     # Convert map image to array
-    imPath = "map2.jpg"  # Change this to the path of your image
+    
     output = "output.txt"  # Output text file
 
     # Colours
@@ -515,13 +519,12 @@ if __name__ == '__main__':
     
     # Path coverage heatmap (averaged)
     im1 = ax1.imshow(avg_path, cmap='hot', interpolation='nearest',
-                    norm=plt.Normalize(vmin=0, vmax=np.max(avg_path)*1.2))
+                    norm=plt.Normalize(vmin=0, vmax=np.max(avg_path)*paddingMultiplyer))
     ax1.set_title("Average Path Coverage Over {} Runs".format(NUM_RUNS))
     fig.colorbar(im1, ax=ax1, label="Average Coverage")
     
     # Trash collection heatmap (averaged)
-    im2 = ax2.imshow(avg_trash, cmap='hot', interpolation='nearest',
-                    norm=plt.Normalize(vmin=0, vmax=np.max(avg_trash)*1.2))
+    im2 = ax2.imshow(avg_trash, cmap='hot', interpolation='nearest', norm=plt.Normalize(vmin=0, vmax=maxPercentage*paddingMultiplyer))
     ax2.set_title("Average Trash Collected Over {} Runs".format(NUM_RUNS))
     fig.colorbar(im2, ax=ax2, label="Average Percentage")
 
