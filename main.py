@@ -11,7 +11,7 @@ import os
 # Constants
 NUM_AGENTS = 50
 NUM_GARBAGE_CANS = 10
-NUM_RUNS = 500
+NUM_RUNS = 1000
 maxPercentage = 60  # Maximum percentage scale for heatmap visualization
 random_spawn_dest = False # Set to True to enable random spawn/destination
 visualize = False
