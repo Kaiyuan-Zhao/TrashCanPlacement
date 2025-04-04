@@ -15,7 +15,7 @@ NUM_RUNS = 1000
 maxPercentage = 60  # Maximum percentage scale for heatmap visualization
 random_spawn_dest = False # Set to True to enable random spawn/destination
 visualize = False
-imPath = "map3b.png"  # Change this to the path of your image
+imPath = "smap2.jpg"  # Change this to the path of your image
 
 paddingMultiplyer = 1
 
